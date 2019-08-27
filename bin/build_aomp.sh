@@ -82,7 +82,9 @@ date
 echo " =================  START build_aomp.sh ==================="   
 echo 
 
-if [ "$AOMP_BUILD_HIP" == 1 ] ; then
+if [ "$AOMP_BUILD_HIPSYCL_ESSENTIAL" == 1 ] ; then
+   components="roct rocr project libdevice comgr hcc hip openmp"
+elif [ "$AOMP_BUILD_HIP" == 1 ] ; then
    components="roct rocr project libdevice comgr hcc hip extras atmi openmp pgmath flang flang_runtime"
 else
    # The hip build will only install headers if AOMP_BUILD_HIP is off
