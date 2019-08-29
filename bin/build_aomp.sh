@@ -83,7 +83,7 @@ echo " =================  START build_aomp.sh ==================="
 echo 
 
 if [ "$AOMP_BUILD_HIPSYCL_ESSENTIAL" == 1 ] ; then
-   components="roct rocr project libdevice comgr hcc hip openmp"
+   components="roct rocr project libdevice comgr hcc hip extras openmp"
 elif [ "$AOMP_BUILD_HIP" == 1 ] ; then
    components="roct rocr project libdevice comgr hcc hip extras atmi openmp pgmath flang flang_runtime"
 else
