@@ -17,8 +17,10 @@ TESTS_DIR = \
     function_overload \
     function_template \
     helloworld \
+    issue_flang_libomp \
     issue_001 \
     issue_002 \
+    launch_latency \
     liba_bundled \
     liba_bundled_cmdline \
     math_modff \

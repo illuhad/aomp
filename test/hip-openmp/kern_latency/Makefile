@@ -29,7 +29,7 @@
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-TESTNAME =hostcall_test
+TESTNAME =kern_latency
 FILETYPE =cpp
 
 ifeq ($(AOMP),)
@@ -53,24 +53,27 @@ endif
 ifeq ($(CUDA),)
 CUDA = /usr/local/cuda
 endif
-ifeq ($(AOMP_GPU),)
-AOMP_GPU = $(shell $(AOMP)/bin/mygpu -d gfx900)
+
+ifeq ($(AOMP_GPU),) #if AOMP_GPU is not set
+AOMP_GPU = $(shell $(AOMP)/bin/mygpu -d gfx900) #get installed card, if unknown return gfx900
 endif
+
 ifeq ($(TARGETS),)
 TARGETS =--offload-arch=$(AOMP_GPU)
 endif
 
 CC       =$(AOMP)/bin/clang++
-
-#  compiler automatically adds "libdevice/<target>/ to -L opts
-LFLAGS   =-L$(AOMP)/lib
+#CFLAGS   =-O3 --target=x86_64-pc-linux-gnu -fopenmp -fopenmp-targets=amdgcn-amd-amdhsa -Xopenmp-target amdgcn-amd-amdhsa #--offload-arch=$(AOMP_GPU)
+#CFLAGS   =-x hip -O3 -target x86_64-pc-linux-gnu -fopenmp -fopenmp-targets=amdgcn-amd-amdhsa -Xopenmp-target=amdgcn-amd-amdhsa -march=gfx900
+CFLAGS   =-x hip -O3 -target x86_64-pc-linux-gnu -fopenmp
+#CFLAGS   =-O3 -fopenmp -target x86_64-pc-linux-gnu
 
 # Add cudart only if we have an Nvidia sm_ target
 ifeq (sm_,$(findstring sm_,$(TARGETS)))
   LFLAGS +=-L$(CUDA)/targets/x86_64-linux/lib -lcudart -Wl,-rpath,$(CUDA)/targets/x86_64-linux/lib
   CFLAGS +=-x cuda -I$(CUDA)/include
 else
-  CFLAGS = -x hip
+  CFLAGS += -x hip
 endif
 
 # ----- Demo compile and link in one step, no object code saved
@@ -78,7 +81,7 @@ $(TESTNAME): $(TESTNAME).$(FILETYPE)
 	$(CC) $(CFLAGS) $(TARGETS) $(LFLAGS) $^ -o $@
 
 run: $(TESTNAME)
-	./$(TESTNAME)
+	./$(TESTNAME) 2>&1 | ./timestampit.sh
 
 #  ----   Demo compile and link in two steps, object saved
 $(TESTNAME).o: $(TESTNAME).$(FILETYPE)

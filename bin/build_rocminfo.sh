@@ -1,11 +1,8 @@
 #!/bin/bash
 #
-#  File: build_hip.sh
-#        Build the hip host and device runtimes, 
+#  File: build_rocminfo.sh
+#        Build the rocminfo utility
 #        The install option will install components into the aomp installation. 
-#        The components include:
-#          hip headers installed in $AOMP/include/hip
-#          hip host runtime installed in $AOMP/lib/libhiprt.so
 #
 # MIT License
 #
@@ -56,37 +53,31 @@ thisdir=$(getdname $0)
 . $thisdir/aomp_common_vars
 # --- end standard header ----
 
-HIP_REPO_DIR=$AOMP_REPOS/$AOMP_HIP_REPO_NAME
-
-if [ "$AOMP_PROC" == "ppc64le" ] ||  [ "$AOMP_PROC" == "aarch64" ] ; then
-   export HIP_PLATFORM="none"
-else
-   export HIP_PLATFORM="hcc"
-fi
+RINFO_REPO_DIR=$AOMP_REPOS/$AOMP_RINFO_REPO_NAME
 
 BUILD_DIR=${BUILD_AOMP}
 
 BUILDTYPE="Release"
 
-INSTALL_HIP=${INSTALL_HIP:-$AOMP_INSTALL_DIR}
+INSTALL_RINFO=${INSTALL_RINFO:-$AOMP_INSTALL_DIR}
 LLVM_BUILD=$AOMP
 
-REPO_BRANCH=$AOMP_HIP_REPO_BRANCH
-REPO_DIR=$AOMP_REPOS/$AOMP_HIP_REPO_NAME
+REPO_BRANCH=$AOMP_RINFO_REPO_BRANCH
+REPO_DIR=$AOMP_REPOS/$AOMP_RINFO_REPO_NAME
 checkrepo
 
 if [ "$1" == "-h" ] || [ "$1" == "help" ] || [ "$1" == "-help" ] ; then
   echo " "
   echo "Example commands and actions: "
-  echo "  ./build_hip.sh                   cmake, make, NO Install "
-  echo "  ./build_hip.sh nocmake           NO cmake, make,  NO install "
-  echo "  ./build_hip.sh install           NO Cmake, make install "
+  echo "  ./build_rocminfo.sh                   cmake, make, NO Install "
+  echo "  ./build_rocminfo.sh nocmake           NO cmake, make,  NO install "
+  echo "  ./build_rocminfo.sh install           NO Cmake, make install "
   echo " "
   exit
 fi
 
-if [ ! -d $HIP_REPO_DIR ] ; then
-   echo "ERROR:  Missing repository $HIP_REPO_DIR/"
+if [ ! -d $RINFO_REPO_DIR ] ; then
+   echo "ERROR:  Missing repository $RINFO_REPO_DIR/"
    exit 1
 fi
 
@@ -100,63 +91,57 @@ fi
 
 # Make sure we can update the install directory
 if [ "$1" == "install" ] ; then
-   $SUDO mkdir -p $INSTALL_HIP
-   $SUDO touch $INSTALL_HIP/testfile
+   $SUDO mkdir -p $INSTALL_RINFO
+   $SUDO touch $INSTALL_RINFO/testfile
    if [ $? != 0 ] ; then
-      echo "ERROR: No update access to $INSTALL_HIP"
+      echo "ERROR: No update access to $INSTALL_RINFO"
       exit 1
    fi
-   $SUDO rm $INSTALL_HIP/testfile
+   $SUDO rm $INSTALL_RINFO/testfile
 fi
 
 if [ "$1" != "nocmake" ] && [ "$1" != "install" ] ; then
 
-  if [ -d "$BUILD_DIR/build/hip" ] ; then
+  if [ -d "$BUILD_DIR/build/rocminfo" ] ; then
      echo
      echo "FRESH START , CLEANING UP FROM PREVIOUS BUILD"
-     echo rm -rf $BUILD_DIR/build/hip
-     rm -rf $BUILD_DIR/build/hip
-  fi
-  
-  if [ $INSTALL_HIP == "/opt/rocm/llvm" ] ; then 
-     hccloc="/opt/rocm/hcc"
-     hsahcc_locations="-DHSA_PATH=/opt/rocm/hsa -DHCC_HOME=/opt/rocm/hcc"
-  else
-     hccloc="$INSTALL_HIP/hcc"
-     hsahcc_locations="-DHSA_PATH=$INSTALL_HIP/hsa -DHCC_HOME=$INSTALL_HIP/hcc"
+     echo rm -rf $BUILD_DIR/build/rocminfo
+     rm -rf $BUILD_DIR/build/rocminfo
   fi
 
-  MYCMAKEOPTS="-DCMAKE_INSTALL_RPATH_USE_LINK_PATH=ON -DCMAKE_INSTALL_RPATH=$INSTALL_HIP/lib:$hccloc/lib -DCMAKE_BUILD_TYPE=$BUILDTYPE -DCMAKE_INSTALL_PREFIX=$INSTALL_HIP -DHIP_PLATFORM=hcc -DHIP_COMPILER=clang $hsahcc_locations"
+  MYCMAKEOPTS="-DCMAKE_INSTALL_RPATH_USE_LINK_PATH=ON -DCMAKE_INSTALL_RPATH=$AOMP_INSTALL_DIR/lib:$AOMP_INSTALL_DIR/hcc/lib -DCMAKE_BUILD_TYPE=$BUILDTYPE -DCMAKE_INSTALL_PREFIX=$INSTALL_RINFO -DROCM_DIR=$AOMP_INSTALL_DIR -DROCRTST_BLD_TYPE=$BUILDTYPE"
 
-  mkdir -p $BUILD_DIR/build/hip
-  cd $BUILD_DIR/build/hip
+  mkdir -p $BUILD_DIR/build/rocminfo
+  cd $BUILD_DIR/build/rocminfo
   echo
-  echo " -----Running hip cmake ---- "
-  echo cmake $MYCMAKEOPTS $HIP_REPO_DIR
-  cmake $MYCMAKEOPTS $HIP_REPO_DIR
+  echo " -----Running rocminfo cmake ---- "
+  echo cmake $MYCMAKEOPTS $RINFO_REPO_DIR
+  cmake $MYCMAKEOPTS $RINFO_REPO_DIR
   if [ $? != 0 ] ; then
-      echo "ERROR hip cmake failed. Cmake flags"
+      echo "ERROR rocminfo cmake failed. Cmake flags"
       echo "      $MYCMAKEOPTS"
       exit 1
   fi
 
 fi
 
-cd $BUILD_DIR/build/hip
+# we need the build to find hsa correctly
+export LD_LIBRARY_PATH=$AOMP_INSTALL_DIR/hsa/lib
+cd $BUILD_DIR/build/rocminfo
 echo
-echo " -----Running make for hip ---- "
+echo " -----Running make for rocminfo ---- "
 make -j $NUM_THREADS 
 if [ $? != 0 ] ; then
       echo " "
       echo "ERROR: make -j $NUM_THREADS  FAILED"
       echo "To restart:"
-      echo "  cd $BUILD_DIR/build/hip"
+      echo "  cd $BUILD_DIR/build/rocminfo"
       echo "  make "
       exit 1
 else
   if [ "$1" != "install" ] ; then
       echo
-      echo " BUILD COMPLETE! To install hip component run this command:"
+      echo " BUILD COMPLETE! To install rocminfo component run this command:"
       echo "  $0 install"
       echo
   fi
@@ -164,25 +149,12 @@ fi
 
 #  ----------- Install only if asked  ----------------------------
 if [ "$1" == "install" ] ; then
-   cd $BUILD_DIR/build/hip
-   echo
-   echo " -----Installing to $INSTALL_HIP ----- "
-   $SUDO make install
-   if [ $? != 0 ] ; then
-      echo "ERROR make install failed "
-      exit 1
-   fi
-   # The hip perl scripts have /opt/rocm hardcoded, so fix them after then are installed
-   # but only if not installing to default location.
-   if [ $INSTALL_HIP != "/opt/rocm/llvm" ] ; then 
-      SED_INSTALL_DIR=`echo $INSTALL_HIP | sed -e 's/\//\\\\\//g' `
-      $SUDO sed -i -e "s/\/opt\/rocm\/llvm/$SED_INSTALL_DIR/" $INSTALL_HIP/bin/hipcc
-      $SUDO sed -i -e "s/\/opt\/rocm/$SED_INSTALL_DIR/" $INSTALL_HIP/bin/hipcc
-      $SUDO sed -i -e "s/\/opt\/rocm\/llvm/$SED_INSTALL_DIR/" $INSTALL_HIP/bin/hipconfig
-      $SUDO sed -i -e "s/\/opt\/rocm/$SED_INSTALL_DIR/" $INSTALL_HIP/bin/hipconfig
-   fi
-   # post install fix to hip headers to support hip+openmp
-   # FIXME: Remove when this patch is added to ROCm HIP
-   cd $INSTALL_HIP
-   patch -p1 < $thisdir/hip.patch
+      cd $BUILD_DIR/build/rocminfo
+      echo
+      echo " -----Installing to $INSTALL_RINFO ----- "
+      $SUDO make install
+      if [ $? != 0 ] ; then
+         echo "ERROR make install failed "
+         exit 1
+      fi
 fi
